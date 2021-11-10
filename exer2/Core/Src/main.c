@@ -96,8 +96,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
-	  int pressed = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13 == GPIO_PIN_SET);
 	  if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_SET) {
 			HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 			HAL_Delay(100);
