@@ -54,26 +54,37 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	uint8_t Data[50];
-	uint16_t size = 0;
+// 	uint8_t Data[50];
+// 	uint16_t size = 0;
+    
+    switch (Received & 0b11110000) {
+        // Note ON
+        case 0b10010000:
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+        // Note OFF
+        case 0b10000000:
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+        default:
+            break;
+    }
+    
+// 	switch (atoi(&Received)) {
+// 
+// 	case 0:
+// 		size = sprintf(Data, "STOP\n\r");
+// 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+// 		break;
+// 	case 1:
+// 		size = sprintf(Data, "START\n\r");
+// 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+// 		break;
+// 	default:
+// 		size = sprintf(Data, "Unknown symbol received: %c\n\r", Received);
+// 		break;
+// 	}
 
-	switch (atoi(&Received)) {
-
-	case 0:
-		size = sprintf(Data, "STOP\n\r");
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 1:
-		size = sprintf(Data, "START\n\r");
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		break;
-	default:
-		size = sprintf(Data, "Unknown symbol received: %c\n\r", Received);
-		break;
-	}
-
-	HAL_UART_Transmit_IT(&huart2, Data, size);
-	HAL_UART_Receive_IT(&huart3, &Received, 24);
+// 	HAL_UART_Transmit_IT(&huart2, Data, size);
+	HAL_UART_Receive_IT(&huart3, &Received, 1);
 }
 /* USER CODE END PFP */
 
@@ -113,7 +124,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart3, &Received, 24);
+  HAL_UART_Receive_IT(&huart3, &Received, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -225,7 +236,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 31250;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
