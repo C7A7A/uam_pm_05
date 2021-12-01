@@ -2757,3 +2757,6 @@ java.lang.Exception
 
 !ENTRY org.eclipse.cdt.core 1 0 2021-11-24 12:17:07.338
 !MESSAGE Indexed '04_UART_Receive_Multiple_Bytes_DMA' (19 sources, 0 headers) in 0.237 sec: 112 declarations; 244 references; 21 unresolved inclusions; 11 syntax errors; 275 unresolved names (44%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2021-12-01 12:51:45.343
+!MESSAGE Indexed 'MIDI' (25 sources, 106 headers) in 3.99 sec: 10,192 declarations; 46,524 references; 3 unresolved inclusions; 46 syntax errors; 171 unresolved names (0.3%)
