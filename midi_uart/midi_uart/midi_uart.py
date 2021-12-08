@@ -58,7 +58,7 @@ def build_message(command):
 
   return Message(msg_type, note=note, velocity=velocity, channel=channel)
 
-port_name = os.getenv('PORT_NAME') or '/dev/tty.usbmodem103'
+port_name = os.getenv('PORT_NAME') or '/dev/ttyACM0'
 baudrate = os.getenv('BAUDRATE') or '115200'
 ser = None
 try:

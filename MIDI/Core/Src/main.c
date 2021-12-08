@@ -16,6 +16,14 @@
   *
   ******************************************************************************
   */
+#define CIRC_BBUF_DEF(x,y)                \
+    uint8_t x##_data_space[y];            \
+    circ_bbuf_t x = {                     \
+        .buffer = x##_data_space,         \
+        .head = 0,                        \
+        .tail = 0,                        \
+        .maxlen = y                       \
+    }
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -27,7 +35,12 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef struct {
+    uint8_t * const buffer;
+    int head;
+    int tail;
+    const int maxlen;
+} circ_bbuf_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -40,11 +53,15 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+DAC_HandleTypeDef hdac1;
+
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint8_t Received;
+uint8_t MIDI_byte;
+CIRC_BBUF_DEF(my_circ_buf, 16);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,22 +69,62 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_DAC1_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+int circ_bbuf_push(circ_bbuf_t *c, uint8_t data) {
+    int next;
+
+    next = c->head + 1;  // next is where head will point to after this write.
+    if (next >= c->maxlen)
+        next = 0;
+
+    if (next == c->tail)  // if the head + 1 == tail, circular buffer is full
+        return -1;
+
+    c->buffer[c->head] = data;  // Load data and then move
+    c->head = next;             // head to next data offset.
+    return 0;  // return success to indicate successful push.
+}
+
+int circ_bbuf_pop(circ_bbuf_t *c, uint8_t *data) {
+    int next;
+
+    if (c->head == c->tail)  // if the head == tail, we don't have any data
+        return -1;
+
+    next = c->tail + 1;  // next is where tail will point to after this read.
+    if(next >= c->maxlen)
+        next = 0;
+
+    *data = c->buffer[c->tail];  // Read data and then move
+    c->tail = next;              // tail to next offset.
+    return 0;  // return success to indicate successful push.
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
-	if(Received >> 4 == 0b1001) {
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-	} else if(Received >> 4 == 0b1000) {
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-	}
+	circ_bbuf_push(&my_circ_buf, Received);
+//	if(Received >> 4 == 0b1001) {
+//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+//	} else if(Received >> 4 == 0b1000) {
+//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//	}
 
-//	uint8_t Data[50]; // Tablica przechowujaca wysylana wiadomosc.
-//	uint16_t size = 0; // Rozmiar wysylanej wiadomosci
-//	size = sprintf(Data, "STOP\n\r");
-//	HAL_UART_Transmit_IT(&huart2, Data, size); // Rozpoczecie nadawania danych z wykorzystaniem przerwan
-	HAL_UART_Receive_IT(&huart1, &Received, 1); // Ponowne włączenie nasłuchiwania
+//	HAL_UART_Transmit_IT(&huart2, Data, size);
+	HAL_UART_Receive_IT(&huart1, &Received, 1);
 	HAL_UART_Receive_IT(&huart2, &Received, 1);
+}
+
+void parse_MIDI_data() {
+	if (circ_bbuf_pop(&my_circ_buf, &MIDI_byte) != -1) {
+
+		if(MIDI_byte >> 4 == 0b1001) {
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+		} else if(MIDI_byte >> 4 == 0b1000) {
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+		}
+	}
 }
 /* USER CODE END PFP */
 
@@ -83,7 +140,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	uint32_t DAC_OUT[4] = {3400, 3600, 3800, 4000};
+	uint8_t i = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -106,6 +164,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
+  MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_IT(&huart2, &Received, 1);
   HAL_UART_Receive_IT(&huart1, &Received, 1);
@@ -113,8 +172,16 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HAL_DAC_Start(&hdac1, DAC1_CHANNEL_1);
   while (1)
   {
+	  DAC1->DHR12R1 = DAC_OUT[i++];
+	  if (i == 4) {
+		  i = 0;
+	  }
+	  HAL_Delay(200);
+
+	  parse_MIDI_data();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -167,6 +234,47 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief DAC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_DAC1_Init(void)
+{
+
+  /* USER CODE BEGIN DAC1_Init 0 */
+
+  /* USER CODE END DAC1_Init 0 */
+
+  DAC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN DAC1_Init 1 */
+
+  /* USER CODE END DAC1_Init 1 */
+  /** DAC Initialization
+  */
+  hdac1.Instance = DAC1;
+  if (HAL_DAC_Init(&hdac1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** DAC channel OUT1 config
+  */
+  sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+  sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+  if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN DAC1_Init 2 */
+
+  /* USER CODE END DAC1_Init 2 */
+
 }
 
 /**
