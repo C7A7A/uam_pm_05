@@ -61,6 +61,12 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t Received;
 uint8_t MIDI_byte;
+uint8_t MIDI_note;
+uint32_t DAC_OUT[28] = {
+	1241, 1344, 1448, 1551, 1655, 1758, 1862, 1965, 2068, 2172, 2275, 2379,
+	2482, 2585, 2689, 2792, 2896, 2999, 3103, 3206, 3309, 3413, 3516, 3620,
+	3723, 3826, 3930, 4033
+};
 CIRC_BBUF_DEF(my_circ_buf, 16);
 /* USER CODE END PV */
 
@@ -121,8 +127,15 @@ void parse_MIDI_data() {
 
 		if(MIDI_byte >> 4 == 0b1001) {
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET); // GATE ON
+
+			if (circ_bbuf_pop(&my_circ_buf, &MIDI_note) != -1) {
+				DAC1->DHR12R1 = DAC_OUT[MIDI_note - 24]; // SET PITCH
+			}
 		} else if(MIDI_byte >> 4 == 0b1000) {
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET); // GATE OFF
+			DAC1->DHR12R1 = 0; // PITCH
 		}
 	}
 }
@@ -140,8 +153,7 @@ void parse_MIDI_data() {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint32_t DAC_OUT[4] = {3400, 3600, 3800, 4000};
-	uint8_t i = 0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -175,12 +187,6 @@ int main(void)
   HAL_DAC_Start(&hdac1, DAC1_CHANNEL_1);
   while (1)
   {
-	  DAC1->DHR12R1 = DAC_OUT[i++];
-	  if (i == 4) {
-		  i = 0;
-	  }
-	  HAL_Delay(200);
-
 	  parse_MIDI_data();
     /* USER CODE END WHILE */
 
@@ -363,7 +369,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, NOTE_ON_OFF_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -371,12 +377,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : NOTE_ON_OFF_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = NOTE_ON_OFF_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
