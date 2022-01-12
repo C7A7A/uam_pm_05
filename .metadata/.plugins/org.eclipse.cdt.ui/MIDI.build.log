@@ -1,10 +1,10 @@
-13:16:08 **** Incremental Build of configuration Debug for project MIDI ****
+13:23:10 **** Incremental Build of configuration Debug for project MIDI ****
 make -j4 all 
 arm-none-eabi-size   MIDI.elf 
    text	   data	    bss	    dec	    hex	filename
-  16196	    148	   1884	  18228	   4734	MIDI.elf
+  16216	    104	   1880	  18200	   4718	MIDI.elf
 Finished building: default.size.stdout
  
 
-13:16:09 Build Finished. 0 errors, 0 warnings. (took 904ms)
+13:23:11 Build Finished. 0 errors, 0 warnings. (took 932ms)
 

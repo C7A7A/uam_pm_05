@@ -62,11 +62,12 @@ UART_HandleTypeDef huart2;
 uint8_t Received;
 uint8_t MIDI_byte;
 uint8_t MIDI_note;
-uint32_t DAC_OUT[28] = {
-	1241, 1344, 1448, 1551, 1655, 1758, 1862, 1965, 2068, 2172, 2275, 2379,
-	2482, 2585, 2689, 2792, 2896, 2999, 3103, 3206, 3309, 3413, 3516, 3620,
-	3723, 3826, 3930, 4033
+uint16_t DAC_OUT[33] = {
+		 124,  248,  372,  496,  620,  745,  869,  993,  1117, 1241, 1365, 1482, // 0.1V - 1.2V
+		 1608, 1730, 1855, 1980, 2100, 2220, 2345, 2470, 2590, 2710, 2835, 2960, // 1.3V - 2.4V
+		 3075, 3205, 3330, 3450, 3570, 3690, 3820, 3945, 4095, 					 // 2.5V - 3.3V
 };
+
 CIRC_BBUF_DEF(my_circ_buf, 16);
 /* USER CODE END PV */
 
@@ -111,13 +112,7 @@ int circ_bbuf_pop(circ_bbuf_t *c, uint8_t *data) {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 	circ_bbuf_push(&my_circ_buf, Received);
-//	if(Received >> 4 == 0b1001) {
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-//	} else if(Received >> 4 == 0b1000) {
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-//	}
 
-//	HAL_UART_Transmit_IT(&huart2, Data, size);
 	HAL_UART_Receive_IT(&huart1, &Received, 1);
 	HAL_UART_Receive_IT(&huart2, &Received, 1);
 }
@@ -130,12 +125,18 @@ void parse_MIDI_data() {
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET); // GATE ON
 
 			if (circ_bbuf_pop(&my_circ_buf, &MIDI_note) != -1) {
-				DAC1->DHR12R1 = DAC_OUT[MIDI_note - 24]; // SET PITCH
+				 // DAC1->DHR12R1 = DAC_OUT[MIDI_note - 48]; // SET PITCH
+				DAC1->DHR12R1 = DAC_OUT[32];
 			}
+
+			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
 		} else if(MIDI_byte >> 4 == 0b1000) {
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET); // GATE OFF
 			DAC1->DHR12R1 = 0; // PITCH
+
+			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
+			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
 		}
 	}
 }
