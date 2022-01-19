@@ -30,7 +30,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,6 +63,7 @@ UART_HandleTypeDef huart2;
 uint8_t Received;
 uint8_t MIDI_byte;
 uint8_t MIDI_note;
+uint16_t current_pitch_bend = 0x2000;
 uint16_t DAC_OUT[33] = {
 		 124,  248,  372,  496,  620,  745,  869,  993,  1117, 1241, 1365, 1482, // 0.1V - 1.2V
 		 1608, 1730, 1855, 1980, 2100, 2220, 2345, 2470, 2590, 2710, 2835, 2960, // 1.3V - 2.4V
@@ -120,23 +122,52 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 void parse_MIDI_data() {
 	if (circ_bbuf_pop(&my_circ_buf, &MIDI_byte) != -1) {
 
+		// NOTE ON
 		if(MIDI_byte >> 4 == 0b1001) {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // DEBUG LED ON
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET); // GATE ON
 
 			if (circ_bbuf_pop(&my_circ_buf, &MIDI_note) != -1) {
 				 // DAC1->DHR12R1 = DAC_OUT[MIDI_note - 48]; // SET PITCH
-				DAC1->DHR12R1 = DAC_OUT[32];
+				DAC1->DHR12R1 = 3820;
 			}
 
 			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
+
+		// NOTE OFF
 		} else if(MIDI_byte >> 4 == 0b1000) {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // DEBUG LED OFF
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET); // GATE OFF
-			DAC1->DHR12R1 = 0; // PITCH
+			DAC1->DHR12R1 = 0; // SET PITCH 0
 
 			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
 			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
+
+		// PITCH BEND
+		} else if(MIDI_byte >> 4 == 0b1110) {
+			uint8_t msb, lsb;
+			float pitch_bend_percent;
+
+			circ_bbuf_pop(&my_circ_buf, &lsb);
+			circ_bbuf_pop(&my_circ_buf, &msb);
+			current_pitch_bend = (msb << 7) + lsb;
+
+			// No pitch bend
+			if(current_pitch_bend == 0x2000)
+				DAC1->DHR12R1 = DAC_OUT[MIDI_note - 48]; // SET PITCH;
+
+			// Pitch bend up to +0.2V
+			if(current_pitch_bend > 0x2000) {
+				pitch_bend_percent = (current_pitch_bend - 8191) / 8192.0;
+										 // max +0.2V
+				DAC1->DHR12R1 += (uint16_t) DAC_OUT[1] * pitch_bend_percent;
+
+			// Pitch bend down to -0.2V
+			} else if(current_pitch_bend < 0x2000) {
+				pitch_bend_percent = abs(current_pitch_bend - 8192) / 8192.0;
+										 // max -0.2V
+				DAC1->DHR12R1 -= (uint16_t) DAC_OUT[1] * pitch_bend_percent;
+			}
 		}
 	}
 }
@@ -188,10 +219,15 @@ int main(void)
   HAL_DAC_Start(&hdac1, DAC1_CHANNEL_1);
   while (1)
   {
-	  parse_MIDI_data();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  parse_MIDI_data();
+	  /*
+	  for (int i = 0; i < 33; i++) {
+		  DAC1->DHR12R1 = DAC_OUT[i];
+	  }
+	  */
   }
   /* USER CODE END 3 */
 }
