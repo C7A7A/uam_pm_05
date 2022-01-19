@@ -60,17 +60,51 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint8_t Received;
-uint8_t MIDI_byte;
-uint8_t MIDI_note;
-uint16_t current_pitch_bend = 0x2000;
-uint16_t DAC_OUT[33] = {
-		 124,  248,  372,  496,  620,  745,  869,  993,  1117, 1241, 1365, 1482, // 0.1V - 1.2V
-		 1608, 1730, 1855, 1980, 2100, 2220, 2345, 2470, 2590, 2710, 2835, 2960, // 1.3V - 2.4V
-		 3075, 3205, 3330, 3450, 3570, 3690, 3820, 3945, 4095, 					 // 2.5V - 3.3V
-};
+uint8_t received;
+uint8_t current_note = 0;
+uint8_t midi_note_number_offset = 48;
+uint8_t number_of_notes = 33;
 
+uint16_t current_pitch_bend = 0x2000;
+uint16_t dor_values[33] = {
+		 124, // 0.1V
+		 248, // 0.2V
+		 372, // 0.3V
+		 496, // 0.4V
+		 620, // 0.5V
+		 745, // 0.6V
+		 869, // 0.7V
+		 993, // 0.8V
+		1117, // 0.9V
+		1241, // 1V
+		1365, // 1.1V
+		1482, // 1.2V
+
+		1608, // 1.3V
+		1730, // 1.4V
+		1855, // 1.5V
+		1980, // 1.6V
+		2100, // 1.7V
+		2220, // 1.8V
+		2345, // 1.9V
+		2470, // 2V
+		2590, // 2.1V
+		2710, // 2.2V
+		2835, // 2.3V
+		2960, // 2.4V
+
+		3075, // 2.5V
+		3205, // 2.6V
+		3330, // 2.7V
+		3450, // 2.8V
+		3570, // 2.9V
+		3690, // 3V
+		3820, // 3.1V
+		3945, // 3.2V
+		4095, // 3.3V
+};
 CIRC_BBUF_DEF(my_circ_buf, 16);
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,93 +116,133 @@ static void MX_DAC1_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 int circ_bbuf_push(circ_bbuf_t *c, uint8_t data) {
-    int next;
+    int next_pos;
 
-    next = c->head + 1;  // next is where head will point to after this write.
-    if (next >= c->maxlen)
-        next = 0;
+    next_pos = c->head + 1;  // next is where head will point to after this write.
+    if (next_pos >= c->maxlen)
+    	next_pos = 0;
 
-    if (next == c->tail)  // if the head + 1 == tail, circular buffer is full
+    if (next_pos == c->tail)  // if the head + 1 == tail, circular buffer is full
         return -1;
 
     c->buffer[c->head] = data;  // Load data and then move
-    c->head = next;             // head to next data offset.
+    c->head = next_pos;             // head to next data offset.
     return 0;  // return success to indicate successful push.
 }
 
 int circ_bbuf_pop(circ_bbuf_t *c, uint8_t *data) {
-    int next;
+    int next_pos;
 
     if (c->head == c->tail)  // if the head == tail, we don't have any data
         return -1;
 
-    next = c->tail + 1;  // next is where tail will point to after this read.
-    if(next >= c->maxlen)
-        next = 0;
+    next_pos = c->tail + 1;  // next is where tail will point to after this read.
+    if(next_pos >= c->maxlen)
+    	next_pos = 0;
 
     *data = c->buffer[c->tail];  // Read data and then move
-    c->tail = next;              // tail to next offset.
+    c->tail = next_pos;              // tail to next offset.
     return 0;  // return success to indicate successful push.
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-
-	circ_bbuf_push(&my_circ_buf, Received);
-
-	HAL_UART_Receive_IT(&huart1, &Received, 1);
-	HAL_UART_Receive_IT(&huart2, &Received, 1);
+	circ_bbuf_push(&my_circ_buf, received);
+	HAL_UART_Receive_IT(&huart2, &received, 1); // Start listening again for UART messages over USB
+	HAL_UART_Receive_IT(&huart1, &received, 1); // Start listening again for UART messages over PIN D2/PA10
 }
 
-void parse_MIDI_data() {
-	if (circ_bbuf_pop(&my_circ_buf, &MIDI_byte) != -1) {
 
-		// NOTE ON
-		if(MIDI_byte >> 4 == 0b1001) {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // DEBUG LED ON
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET); // GATE ON
+uint16_t calculate_dor(uint8_t note_number, uint16_t pitch_bend) {
+	float pitch_bend_percent;
+	uint16_t result_dor = dor_values[note_number - midi_note_number_offset];
 
-			if (circ_bbuf_pop(&my_circ_buf, &MIDI_note) != -1) {
-				 // DAC1->DHR12R1 = DAC_OUT[MIDI_note - 48]; // SET PITCH
-				DAC1->DHR12R1 = 3820;
-			}
+	// No pitch bend
+	if(pitch_bend == 0x2000)
+		return result_dor;
 
-			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
+	// Pitch bend up to +0.2V
+	if(pitch_bend > 0x2000) {
+		pitch_bend_percent = (pitch_bend - 8191) / 8192.0;
+								 // max +0.2V
+		result_dor += (uint16_t) dor_values[1] * pitch_bend_percent;
 
-		// NOTE OFF
-		} else if(MIDI_byte >> 4 == 0b1000) {
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // DEBUG LED OFF
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET); // GATE OFF
-			DAC1->DHR12R1 = 0; // SET PITCH 0
+	// Pitch bend down to -0.2V
+	} else if(pitch_bend < 0x2000) {
+		pitch_bend_percent = abs(pitch_bend - 8192) / 8192.0;
+								 // max -0.2V
+		result_dor -= (uint16_t) dor_values[1] * pitch_bend_percent;
+	}
 
-			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
-			circ_bbuf_pop(&my_circ_buf, &MIDI_byte);
+	return result_dor;
+}
 
-		// PITCH BEND
-		} else if(MIDI_byte >> 4 == 0b1110) {
-			uint8_t msb, lsb;
-			float pitch_bend_percent;
+uint16_t calculate_current_dor() {
+	return calculate_dor(current_note, current_pitch_bend);
+}
 
-			circ_bbuf_pop(&my_circ_buf, &lsb);
-			circ_bbuf_pop(&my_circ_buf, &msb);
-			current_pitch_bend = (msb << 7) + lsb;
+void set_gate() {
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
+}
 
-			// No pitch bend
-			if(current_pitch_bend == 0x2000)
-				DAC1->DHR12R1 = DAC_OUT[MIDI_note - 48]; // SET PITCH;
+void unset_gate() {
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+}
 
-			// Pitch bend up to +0.2V
-			if(current_pitch_bend > 0x2000) {
-				pitch_bend_percent = (current_pitch_bend - 8191) / 8192.0;
-										 // max +0.2V
-				DAC1->DHR12R1 += (uint16_t) DAC_OUT[1] * pitch_bend_percent;
+void set_pitch(uint16_t dor_value) {
+	DAC1->DHR12R1 = dor_value;
+}
 
-			// Pitch bend down to -0.2V
-			} else if(current_pitch_bend < 0x2000) {
-				pitch_bend_percent = abs(current_pitch_bend - 8192) / 8192.0;
-										 // max -0.2V
-				DAC1->DHR12R1 -= (uint16_t) DAC_OUT[1] * pitch_bend_percent;
-			}
+void parse_MIDI() {
+	uint8_t midi_byte, note_byte, note_index;
+	int byte_present = circ_bbuf_pop(&my_circ_buf, &midi_byte);
+
+	// Note ON
+	if(byte_present == -1) {}
+	else if(midi_byte >> 4 == 0b1001) {
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+
+		circ_bbuf_pop(&my_circ_buf, &midi_byte);
+
+		note_index = midi_byte - midi_note_number_offset;
+		note_byte = midi_byte;
+
+		circ_bbuf_pop(&my_circ_buf, &midi_byte);
+
+		// Note ON with Velocity=0 => Note OFF
+		if(midi_byte == 0 && current_note == note_byte) {
+			set_pitch(0); // set PITCH to ~0V
+			unset_gate(); // set GATE to ~0V
+		} else if(note_index <= number_of_notes && note_byte >= midi_note_number_offset) {
+			current_note = note_byte;
+			set_pitch(calculate_current_dor()); // set PITCH to appropriate voltage
+			set_gate(); // set GATE to 3.3V
 		}
+	// Note OFF
+	} else if(midi_byte >> 4 == 0b1000) {
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
+		circ_bbuf_pop(&my_circ_buf, &midi_byte);
+
+		note_index = midi_byte - midi_note_number_offset;
+		note_byte = midi_byte;
+
+		circ_bbuf_pop(&my_circ_buf, &midi_byte);
+
+		if(note_byte == current_note) {
+			set_pitch(0); // set PITCH to ~0V
+			unset_gate(); // set GATE to ~0V
+		}
+	// PITCH BEND
+	} else if(midi_byte >> 4 == 0b1110) {
+		uint8_t msb, lsb;
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+
+		circ_bbuf_pop(&my_circ_buf, &lsb);
+
+		circ_bbuf_pop(&my_circ_buf, &msb);
+		current_pitch_bend = (msb << 7) + lsb;
+
+		set_pitch(calculate_current_dor()); // set PITCH to appropriate voltage
 	}
 }
 /* USER CODE END PFP */
@@ -185,7 +259,6 @@ void parse_MIDI_data() {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -194,7 +267,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  set_pitch(0);
+  unset_gate();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -210,8 +284,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_DAC1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart2, &Received, 1);
-  HAL_UART_Receive_IT(&huart1, &Received, 1);
+  HAL_UART_Receive_IT(&huart2, &received, 1);
+  HAL_UART_Receive_IT(&huart1, &received, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -222,12 +296,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  parse_MIDI_data();
-	  /*
-	  for (int i = 0; i < 33; i++) {
-		  DAC1->DHR12R1 = DAC_OUT[i];
-	  }
-	  */
+	    parse_MIDI();
   }
   /* USER CODE END 3 */
 }
@@ -406,7 +475,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, NOTE_ON_OFF_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -414,12 +486,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : NOTE_ON_OFF_Pin LD2_Pin */
-  GPIO_InitStruct.Pin = NOTE_ON_OFF_Pin|LD2_Pin;
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 

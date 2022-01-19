@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="DAC1"/>
+		<item key="selection" value="set_debug_led"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="set_debug_led"/>
+			<item value="HAL_UART_RxCpltCallback&apos;"/>
+			<item value="Received"/>
+			<item value="current_note"/>
+			<item value="MX_DAC1_Init"/>
+			<item value="DAC"/>
+			<item value="current_pitch"/>
+			<item value="current_"/>
+			<item value="currrent_pitch_bend"/>
 			<item value="DAC1"/>
 			<item value="dac1"/>
 			<item value="MIDI_note"/>
 			<item value="GPIO"/>
 			<item value="Private var"/>
 			<item value="huart1"/>
-			<item value="huart2"/>
-			<item value="huart3"/>
-			<item value="HAL_UART"/>
-			<item value="HAL"/>
-			<item value="Pin_5"/>
-			<item value="PIN"/>
-			<item value="PFP"/>
-			<item value="USER COD E"/>
-			<item value="Private function pro"/>
 		</list>
 		<list key="replacehistory">
 		</list>
