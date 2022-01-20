@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
-		<item key="selection" value="set_debug_led"/>
+		<item key="selection" value="GPIO_PIN"/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
 		<item key="wholeword" value="false"/>
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
-			<item value="set_debug_led"/>
-			<item value="HAL_UART_RxCpltCallback&apos;"/>
-			<item value="Received"/>
-			<item value="current_note"/>
-			<item value="MX_DAC1_Init"/>
-			<item value="DAC"/>
-			<item value="current_pitch"/>
-			<item value="current_"/>
-			<item value="currrent_pitch_bend"/>
-			<item value="DAC1"/>
-			<item value="dac1"/>
-			<item value="MIDI_note"/>
+			<item value="GPIO_PIN_1"/>
+			<item value="GPIO_PIN_5"/>
+			<item value="GPIO_PIN"/>
 			<item value="GPIO"/>
-			<item value="Private var"/>
-			<item value="huart1"/>
+			<item value="print_uart"/>
+			<item value="huart2"/>
+			<item value="set_debug"/>
+			<item value="debug"/>
+			<item value="MID_byte"/>
+			<item value="pitch_bend"/>
+			<item value="dor"/>
+			<item value="current_note"/>
+			<item value="dor_values"/>
+			<item value="my_circ"/>
+			<item value="midi_note_number_offset"/>
 		</list>
 		<list key="replacehistory">
 		</list>
@@ -30,8 +30,8 @@
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
 		<item key="DIALOG_X_ORIGIN" value="1120"/>
 		<item key="DIALOG_Y_ORIGIN" value="136"/>
-		<item key="DIALOG_WIDTH" value="355"/>
-		<item key="DIALOG_HEIGHT" value="427"/>
-		<item key="DIALOG_FONT_NAME" value="1|Ubuntu|11.0|0|GTK|1|"/>
+		<item key="DIALOG_WIDTH" value="363"/>
+		<item key="DIALOG_HEIGHT" value="395"/>
+		<item key="DIALOG_FONT_NAME" value="1|Noto Sans|10.0|0|GTK|1|"/>
 	</section>
 </section>
