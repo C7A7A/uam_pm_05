@@ -61,8 +61,8 @@ all: main-build
 main-build: MIDI.elf secondary-outputs
 
 # Tool invocations
-MIDI.elf: $(OBJS) $(USER_OBJS) /home/students/s452648/STM32CubeIDE/workspace_1.7.0/MIDI/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "MIDI.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/students/s452648/STM32CubeIDE/workspace_1.7.0/MIDI/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MIDI.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+MIDI.elf: $(OBJS) $(USER_OBJS) /home/mateusz/studia/uam_pm/MIDI/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MIDI.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/mateusz/studia/uam_pm/MIDI/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MIDI.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
