@@ -155,13 +155,13 @@ uint16_t calculate_pitch() {
 	if(current_pitch_bend > default_pitch_bend_value) {
 		//debug_message();
 		pitch_bend_percent = (current_pitch_bend - (default_pitch_bend_value - 1)) / 8192.0;
-		result_pitch += (uint16_t) DAC_OUT[1] * pitch_bend_percent;
+		result_pitch += (uint16_t)DAC_OUT[1] * pitch_bend_percent;
 
 	// Pitch bend down to -0.2V
 	} else if(current_pitch_bend < default_pitch_bend_value) {
 		debug_message();
 		pitch_bend_percent = abs(current_pitch_bend - default_pitch_bend_value) / 8192.0;
-		result_pitch -= (uint16_t) DAC_OUT[1] * pitch_bend_percent;
+		result_pitch -= (uint16_t)DAC_OUT[1] * pitch_bend_percent;
 	}
 
 	return result_pitch;
