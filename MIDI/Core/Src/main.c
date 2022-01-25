@@ -62,12 +62,12 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t received;
 uint8_t current_MIDI_note = 0;
-uint8_t MIDI_note_number_offset = 48;
-uint8_t number_of_notes = 33;
+const uint8_t MIDI_note_number_offset = 48;
+const uint8_t number_of_notes = 33;
 
-uint16_t default_pitch_bend_value = 8192;
-uint16_t current_pitch_bend = 0;
-uint16_t DAC_OUT[33] = {
+const uint16_t default_pitch_bend_value = 8192;
+uint16_t current_pitch_bend = 8192;
+const uint16_t DAC_OUT[33] = {
 		 124, 248, 372, 496, 620, 745, 869, 993, 1117, 1241, 1365, 1482, 		// 0.1V - 1.2V
 		1608, 1730, 1855, 1980, 2100, 2220, 2345, 2470, 2590, 2710, 2835, 2960, // 1.3V - 2.4V
 		3075, 3205, 3330, 3450, 3570, 3690, 3820, 3945, 4095, 					// 2.5V - 3.3V
@@ -126,11 +126,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 void debug_led_set() {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
 }
 
 void debug_led_unset() {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 }
 
 void debug_message() {
@@ -147,7 +147,7 @@ uint16_t calculate_pitch() {
 	float pitch_bend_percent;
 	uint16_t result_pitch = DAC_OUT[current_MIDI_note - MIDI_note_number_offset];
 
-	// No pitch bend
+	// Check if pitch bend in default state
 	if(current_pitch_bend == default_pitch_bend_value)
 		return result_pitch;
 
@@ -235,6 +235,13 @@ void parse_MIDI_message() {
 		current_pitch_bend = (msb << 7) + lsb; // calculate pitch_bend
 
 		set_pitch(calculate_pitch()); // set pitch to calculated value
+
+	// MODULATION (CONTROL CHANGE)
+	} else if (MIDI_byte >> 4 == 0b1011) {
+
+	// WRONG STATUS
+	} else {
+		return;
 	}
 }
 /* USER CODE END PFP */
@@ -261,7 +268,6 @@ int main(void)
   /* USER CODE BEGIN Init */
   set_pitch(0);
   set_gate(0);
-  current_pitch_bend = default_pitch_bend_value;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -273,8 +279,8 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DAC1_Init();
   MX_USART1_UART_Init();
+  MX_DAC1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_IT(&huart2, &received, 1);
@@ -284,6 +290,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_DAC_Start(&hdac1, DAC1_CHANNEL_1);
+  HAL_DAC_Start(&hdac1, DAC1_CHANNEL_2);
   while (1)
   {
 	  parse_MIDI_message();
@@ -373,6 +380,12 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** DAC channel OUT2 config
+  */
+  if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -468,7 +481,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
@@ -479,8 +492,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  /*Configure GPIO pin : PA6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
