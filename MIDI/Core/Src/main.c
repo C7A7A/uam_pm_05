@@ -67,8 +67,7 @@ const uint8_t number_of_notes = 33;
 
 const uint16_t default_pitch_bend_value = 8192;
 uint16_t current_pitch_bend = 8192;
-const uint16_t DAC_OUT[33] = { 124, 248, 372, 496, 620, 745, 869, 993, 1117,
-		1241, 1365, 1482, 		// 0.1V - 1.2V
+const uint16_t DAC_OUT[33] = { 124, 248, 372, 496, 620, 745, 869, 993, 1117, 1241, 1365, 1482, 		// 0.1V - 1.2V
 		1608, 1730, 1855, 1980, 2100, 2220, 2345, 2470, 2590, 2710, 2835, 2960, // 1.3V - 2.4V
 		3075, 3205, 3330, 3450, 3570, 3690, 3820, 3945, 4095, 	// 2.5V - 3.3V
 		};
@@ -119,11 +118,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	circ_bbuf_push(&data_buffer, received);
 	HAL_UART_Receive_IT(&huart2, &received, 1); // Start listening again for UART messages over USB
 	HAL_UART_Receive_IT(&huart1, &received, 1); // Start listening again for UART messages over PIN D2/PA10
-
-	uint8_t data_received[13] = "data received";
-	uint16_t data_received_size = 13;
-	HAL_UART_Transmit(&huart2, data_received, data_received_size, 1000);
+	/*
+	uint8_t data_received[20] = "data received\r\n";
+	uint16_t data_received_size = 20;
+	*/
+	HAL_UART_Transmit(&huart2, "rec\r\n", 10, 1000);
 }
+
+void print_uart(char message[], uint16_t byte) {
+    uint8_t message_to_print[50];
+    uint16_t message_to_print_size = 0;
+
+    message_to_print_size = sprintf(message_to_print, message, byte, byte, byte);
+    HAL_UART_Transmit(&huart2, message_to_print, message_to_print_size, 1000); // Send data over UART
+}
+
 
 void debug_led_set() {
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, GPIO_PIN_SET);
@@ -154,15 +163,13 @@ uint16_t calculate_pitch() {
 	// Pitch bend up to +0.2V
 	if (current_pitch_bend > default_pitch_bend_value) {
 		//debug_message();
-		pitch_bend_percent = (current_pitch_bend
-				- (default_pitch_bend_value - 1)) / 8192.0;
+		pitch_bend_percent = (current_pitch_bend - (default_pitch_bend_value - 1)) / 8192.0;
 		result_pitch += (uint16_t) DAC_OUT[1] * pitch_bend_percent;
 
 		// Pitch bend down to -0.2V
 	} else if (current_pitch_bend < default_pitch_bend_value) {
-		debug_message();
-		pitch_bend_percent = abs(current_pitch_bend - default_pitch_bend_value)
-				/ 8192.0;
+		// debug_message();
+		pitch_bend_percent = abs(current_pitch_bend - default_pitch_bend_value) / 8192.0;
 		result_pitch -= (uint16_t) DAC_OUT[1] * pitch_bend_percent;
 	}
 
@@ -183,10 +190,12 @@ void unset_gate() {
 }
 
 void set_pitch(uint16_t value) {
+	print_uart("  PITCH: 0x%x => %u \r\n", value);
 	DAC1->DHR12R1 = value;
 }
 
 void set_modulation(uint16_t value) {
+	print_uart("  MODULATION: 0x%x => %u \r\n", value);
 	DAC1->DHR12R2 = value;
 }
 
@@ -203,18 +212,19 @@ void parse_MIDI_message() {
 		debug_led_set(); // LED ON
 
 		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 2nd MIDI byte (MIDI note)
+		print_uart("  Note on: 0x%x => %u \r\n", MIDI_byte);
 
 		note_index = MIDI_byte - MIDI_note_number_offset; // MIDI_byte - 48
 		MIDI_note = MIDI_byte;
 
 		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 3rd MIDI byte (MIDI Velocity)
+		print_uart("  Velocity: 0x%x => %u \r\n", MIDI_byte);
 
 		// NOTE ON + Velocity = 0 --> NOTE OFF
 		if (MIDI_byte == 0 && current_MIDI_note == MIDI_note) {
 			set_pitch(0); // set PITCH to 0
 			unset_gate(); // unset GATE
-		} else if (note_index <= number_of_notes
-				&& MIDI_note >= MIDI_note_number_offset) {
+		} else if (note_index <= number_of_notes && MIDI_note >= MIDI_note_number_offset) {
 			current_MIDI_note = MIDI_note; // set note to global variable
 			set_pitch(calculate_pitch()); // set pitch to calculated value
 			set_gate(); // set GATE
@@ -222,11 +232,13 @@ void parse_MIDI_message() {
 		// NOTE OFF
 	} else if (MIDI_byte >> 4 == 0b1000) {
 		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 2nd  MIDI byte (MIDI Note)
+		print_uart("  Note off: 0x%x => %u \r\n", MIDI_byte);
 
 		note_index = MIDI_byte - MIDI_note_number_offset; // MIDI_byte - 48
 		MIDI_note = MIDI_byte;
 
 		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 3rd MIDI byte (MIDI Velocity)
+		print_uart("  Velocity: 0x%x => %u \r\n", MIDI_byte);
 
 		// check if released note = current MIDI note
 		if (MIDI_note == current_MIDI_note) {
@@ -242,9 +254,14 @@ void parse_MIDI_message() {
 		// debug_led_unset(); // LED OFF
 
 		circ_bbuf_pop(&data_buffer, &lsb); // pop 2nd MIDI byte (least significant byte)
+		print_uart("  LSB: 0x%x => %u \r\n", lsb);
+
 		circ_bbuf_pop(&data_buffer, &msb); // pop 3rd MIDI byte (most significant byte)
+		print_uart("  MSB: 0x%x => %u \r\n", msb);
 
 		current_pitch_bend = (msb << 7) + lsb; // calculate pitch_bend
+		print_uart("  MSB << 7: 0x%x => %u \r\n", msb << 7);
+		print_uart("  Pitch: 0x%x => %u \r\n", current_pitch_bend);
 
 		set_pitch(calculate_pitch()); // set pitch to calculated value
 
@@ -253,8 +270,12 @@ void parse_MIDI_message() {
 		uint8_t modulation_value = 0;
 		debug_led_set();
 
-		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 2nd MIDI byte (Controller number)
+		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 2nd MIDI byte (controller number)
+		print_uart("  Controller Number: 0x%x => %u \r\n", MIDI_byte);
+
 		circ_bbuf_pop(&data_buffer, &MIDI_byte); // pop 3rd MIDI byte (actual value)
+		print_uart("  Value: 0x%x => %u \r\n", MIDI_byte);
+
 		modulation_value = MIDI_byte;
 
 		set_modulation(calculate_modulation(modulation_value));
@@ -287,6 +308,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 	set_pitch(0);
 	set_gate(0);
+	set_modulation(0);
   /* USER CODE END Init */
 
   /* Configure the system clock */
