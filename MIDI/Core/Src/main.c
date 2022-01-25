@@ -32,6 +32,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -122,7 +123,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	uint8_t data_received[20] = "data received\r\n";
 	uint16_t data_received_size = 20;
 	*/
-	HAL_UART_Transmit(&huart2, "rec\r\n", 10, 1000);
+	// HAL_UART_Transmit(&huart2, "rec\r\n", strlen("rec\r\n"), 1000);
 }
 
 void print_uart(char message[], uint16_t byte) {
@@ -206,6 +207,7 @@ void parse_MIDI_message() {
 	if (circ_bbuf_pop(&data_buffer, &MIDI_byte) == -1) {
 		return; // return if buffet is empty
 	}
+	print_uart("  Status: 0x%x => %u \r\n", MIDI_byte);
 
 	// NOTE ON
 	if (MIDI_byte >> 4 == 0b1001) {
@@ -261,7 +263,7 @@ void parse_MIDI_message() {
 
 		current_pitch_bend = (msb << 7) + lsb; // calculate pitch_bend
 		print_uart("  MSB << 7: 0x%x => %u \r\n", msb << 7);
-		print_uart("  Pitch: 0x%x => %u \r\n", current_pitch_bend);
+		print_uart("  Pitch bend: 0x%x => %u \r\n", current_pitch_bend);
 
 		set_pitch(calculate_pitch()); // set pitch to calculated value
 

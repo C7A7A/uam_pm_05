@@ -8099,3 +8099,14 @@ Command-line arguments:  -os linux -ws gtk -arch x86_64
 
 !ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2022-01-25 12:43:08.337
 !MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.remote.console 4 0 2022-01-25 17:00:34.636
+!MESSAGE Error opening /dev/ttyACM0: No such file or directory
+!STACK 0
+java.io.IOException: Error opening /dev/ttyACM0: No such file or directory
+	at org.eclipse.cdt.serial.SerialPort.open0(Native Method)
+	at org.eclipse.cdt.serial.SerialPort.open(SerialPort.java:316)
+	at org.eclipse.remote.serial.core.SerialPortCommandShell.<init>(SerialPortCommandShell.java:31)
+	at org.eclipse.remote.serial.core.SerialPortConnection.getCommandShell(SerialPortConnection.java:90)
+	at org.eclipse.remote.internal.console.TerminalConsoleConnector$1.run(TerminalConsoleConnector.java:137)
+	at org.eclipse.core.internal.jobs.Worker.run(Worker.java:63)
