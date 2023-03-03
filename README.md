@@ -1,6 +1,6 @@
 # UAM_PM
 
-5 semestr Programowanie mikrokontrolerów
+5 semestr UAM - Programowanie mikrokontrolerów
 
 ## Getting started
 
